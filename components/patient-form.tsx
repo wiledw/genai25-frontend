@@ -12,12 +12,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 import { ToastContainer, toast } from 'react-toastify'; // Import toast components
 import 'react-toastify/dist/ReactToastify.css'; // Import toast styles
+import { LocalizationProvider } from '@mui/x-date-pickers'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
+import dayjs from 'dayjs'
 
 const patientFormSchema = z.object({
   age: z.coerce.number().int().min(1).max(120).optional(),
@@ -299,30 +302,18 @@ export function PatientForm() {
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
                       <FormLabel>Scan Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground",
-                              )}
-                            >
-                              {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                      <FormControl>
+                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                          <DateCalendar
+                            value={field.value ? dayjs(field.value) : null}
+                            onChange={(newValue) => {
+                              field.onChange(newValue?.toDate());
+                            }}
+                            views={['year', 'month', 'day']}
+                            openTo="year"
                           />
-                        </PopoverContent>
-                      </Popover>
+                        </LocalizationProvider>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
