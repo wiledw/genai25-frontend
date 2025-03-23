@@ -4,17 +4,13 @@ import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { CalendarIcon, Upload } from "lucide-react"
-import { format } from "date-fns"
+import { Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { cn } from "@/lib/utils"
 import { ToastContainer, toast } from 'react-toastify'; // Import toast components
 import 'react-toastify/dist/ReactToastify.css'; // Import toast styles
 import { LocalizationProvider } from '@mui/x-date-pickers'
@@ -58,11 +54,27 @@ const defaultValues: Partial<PatientFormValues> = {
 
 export function PatientForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   const form = useForm<PatientFormValues>({
     resolver: zodResolver(patientFormSchema),
     defaultValues,
   })
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      if (file.name.endsWith('.nii')) {
+        setSelectedFile(file)
+      } else {
+        toast.error("Please upload a valid NIfTI (.nii) file")
+      }
+    }
+  }
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null)
+  }
 
   async function onSubmit(data: PatientFormValues) {
     setIsSubmitting(true)
@@ -99,12 +111,17 @@ export function PatientForm() {
 
     if ((demographicsFilled && !imagingFilled) || (imagingFilled && !demographicsFilled)) {
       try {
+        const formData = new FormData();
+
+        formData.append('data', JSON.stringify(dataWithObesity));
+
+        if (selectedFile) {
+          formData.append('file', selectedFile);
+        }
+
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/combined_analysis`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(dataWithObesity)
+          body: formData,
         });
 
         if (!response.ok) {
@@ -140,7 +157,7 @@ export function PatientForm() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col min-h-[500px]">
             <Tabs defaultValue="demographics" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="demographics">Demographics</TabsTrigger>
@@ -350,98 +367,44 @@ export function PatientForm() {
               </TabsContent>
 
               <TabsContent value="imaging" className="space-y-4 pt-4">
-                <FormField
-                  control={form.control}
-                  name="scanType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Imaging Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select imaging type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="CT">CT Scan</SelectItem>
-                          <SelectItem value="MRI">MRI</SelectItem>
-                          <SelectItem value="PET">PET Scan</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+                <div className="border-2 border-dashed rounded-lg p-6">
+                  <input
+                    type="file"
+                    accept=".nii"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  
+                  {!selectedFile ? (
+                    <label
+                      htmlFor="file-upload"
+                      className="flex flex-col items-center justify-center cursor-pointer"
+                    >
+                      <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">Upload medical imaging scans (CT, MRI, or PET)</p>
+                      <p className="text-xs text-muted-foreground mt-1">Supported format: NIfTI (.nii)</p>
+                    </label>
+                  ) : (
+                    <div className="flex items-center justify-between p-2 bg-muted rounded">
+                      <div className="flex items-center space-x-2">
+                        <Upload className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-sm font-medium">{selectedFile.name}</span>
+                      </div>
+                      <button
+                        onClick={handleRemoveFile}
+                        className="p-1 hover:bg-background rounded"
+                        type="button"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="scanDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Scan Date</FormLabel>
-                      <FormControl>
-                        <LocalizationProvider dateAdapter={AdapterDayjs}>
-                          <DateCalendar
-                            value={field.value ? dayjs(field.value) : null}
-                            onChange={(newValue) => {
-                              field.onChange(newValue?.toDate());
-                            }}
-                            views={['year', 'month', 'day']}
-                            openTo="year"
-                          />
-                        </LocalizationProvider>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="resectionStatus"
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <FormLabel>Resection Status</FormLabel>
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="flex flex-col space-y-1"
-                        >
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="primary" />
-                            </FormControl>
-                            <FormLabel className="font-normal">Primary (No resection)</FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="R0" />
-                            </FormControl>
-                            <FormLabel className="font-normal">R0 (Complete resection)</FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="R+" />
-                            </FormControl>
-                            <FormLabel className="font-normal">R+ (Incomplete resection)</FormLabel>
-                          </FormItem>
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                  <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">Upload biomarker information or scan images</p>
-                  <p className="text-xs text-muted-foreground mt-1">(Functionality to be implemented by backend)</p>
                 </div>
               </TabsContent>
             </Tabs>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            <Button type="submit" className="w-full mt-auto" disabled={isSubmitting}>
               {isSubmitting ? "Processing..." : "Generate Diagnosis"}
             </Button>
           </form>
