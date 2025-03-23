@@ -64,10 +64,10 @@ export function PatientForm() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      if (file.name.endsWith('.nii')) {
+      if (file.name.endsWith('.gz')) {
         setSelectedFile(file)
       } else {
-        toast.error("Please upload a valid NIfTI (.nii) file")
+        toast.error("Please upload a valid NIfTI (.nii.gz) file")
       }
     }
   }
@@ -370,7 +370,7 @@ export function PatientForm() {
                 <div className="border-2 border-dashed rounded-lg p-6">
                   <input
                     type="file"
-                    accept=".nii"
+                    accept=".gz"
                     onChange={handleFileChange}
                     className="hidden"
                     id="file-upload"
@@ -383,7 +383,7 @@ export function PatientForm() {
                     >
                       <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                       <p className="text-sm text-muted-foreground">Upload medical imaging scans (CT, MRI, or PET)</p>
-                      <p className="text-xs text-muted-foreground mt-1">Supported format: NIfTI (.nii)</p>
+                      <p className="text-xs text-muted-foreground mt-1">Supported format: NIfTI (.nii.gz)</p>
                     </label>
                   ) : (
                     <div className="flex items-center justify-between p-2 bg-muted rounded">
