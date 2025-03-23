@@ -25,7 +25,7 @@ export default async function Home() {
 
       <footer className="bg-white border-t mt-auto py-6">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} PancAI - For demonstration purposes only</p>
+          <p>© {new Date().getFullYear()} PancrAI - For demonstration purposes only</p>
           <p className="mt-2">This tool is intended for medical professionals as a diagnostic aid.</p>
         </div>
       </footer>

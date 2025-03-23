@@ -23,22 +23,25 @@ import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
 import dayjs from 'dayjs'
 
 const patientFormSchema = z.object({
+  patientId: z.coerce.number().int().min(0).optional(),
   age: z.coerce.number().int().min(1).max(120).optional(),
-  gender: z.enum(["M", "F", "O"]).optional(),
+  gender: z.enum(["Male", "Female"]).optional(),
   height: z.coerce.number().min(1).max(250).optional(),
   weight: z.coerce.number().min(1).max(300).optional(),
   scanType: z.enum(["CT", "MRI", "PET"]).optional(),
   scanDate: z.date().optional(),
   resectionStatus: z.enum(["primary", "R0", "R+"]).optional(),
-  smokingHistory: z.enum(["Yes", "No"]).optional(),
+  smoking: z.enum(["Yes", "No"]).optional(),
   diabetes: z.enum(["Yes", "No"]).optional(),
-  physicalActivityLevel: z.enum(["Low", "Medium", "High"]).optional(),
-  accessToHealthcare: z.enum(["Low", "Medium", "High"]).optional(),
+  alcohol: z.enum(["Yes", "No"]).optional(),
+  activity: z.enum(["Low", "Medium", "High"]).optional(),
+  healthcare: z.enum(["Low", "Medium", "High"]).optional(),
 })
 
 type PatientFormValues = z.infer<typeof patientFormSchema>
 
 const defaultValues: Partial<PatientFormValues> = {
+  patientId: 0,
   age: 0,
   gender: undefined,
   height: 0,
@@ -46,10 +49,11 @@ const defaultValues: Partial<PatientFormValues> = {
   scanType: undefined,
   scanDate: undefined,
   resectionStatus: undefined,
-  smokingHistory: undefined,
+  smoking: undefined,
   diabetes: undefined,
-  physicalActivityLevel: undefined,
-  accessToHealthcare: undefined,
+  activity: undefined,
+  healthcare: undefined,
+  alcohol: undefined,
 }
 
 export function PatientForm() {
@@ -63,32 +67,67 @@ export function PatientForm() {
   async function onSubmit(data: PatientFormValues) {
     setIsSubmitting(true)
 
-    // Check if demographics or imaging data is filled
-    const demographicsFilled = data.age !== 0 && data.gender !== undefined && data.height !== 0 && data.weight !== 0 && data.smokingHistory !== undefined && data.accessToHealthcare !== undefined
-    data.diabetes !== undefined && data.physicalActivityLevel !== undefined;
-    const imagingFilled = data.scanType !== undefined && data.scanDate !== undefined && data.resectionStatus !== undefined;
+    // Calculate BMI and determine obesity
+    const calculateBMI = (height: number, weight: number) => {
+      const heightInMeters = height / 100; // Convert cm to meters
+      return weight / (heightInMeters * heightInMeters);
+    };
 
-    // Validate submission based on filled sections
-    if (demographicsFilled && !imagingFilled || (imagingFilled && !demographicsFilled) ) {
-      // Proceed with submission
-      console.log("Form data submitted:", data)
+    // Create new data object with obesity status
+    const bmi = calculateBMI(data.height!, data.weight!);
+    const dataWithObesity = {
+      ...data,
+      obesity: bmi >= 30 ? "1" : "0" // WHO definition of obesity: BMI ≥ 30
+    };
 
-      // Simulate API call to backend
-      setTimeout(() => {
-        setIsSubmitting(false)
-        // Trigger diagnosis display (in a real app, this would come from the backend)
-        const diagnosisEvent = new CustomEvent("diagnosisReady", {
-          detail: {
-            hasCancer: Math.random() > 0.5,
-            confidence: Math.floor(Math.random() * 30) + 70,
-            stage: Math.floor(Math.random() * 4) + 1,
+    // Remove height and weight from the data sent to API
+    delete dataWithObesity.height;
+    delete dataWithObesity.weight;
+
+    const demographicsFilled = dataWithObesity.age !== undefined && 
+      dataWithObesity.gender !== undefined && 
+      dataWithObesity.obesity !== undefined &&
+      dataWithObesity.smoking !== undefined && 
+      dataWithObesity.diabetes !== undefined && 
+      dataWithObesity.activity !== undefined && 
+      dataWithObesity.alcohol !== undefined &&
+      dataWithObesity.patientId !== undefined &&
+      dataWithObesity.healthcare !== undefined;
+    const imagingFilled = dataWithObesity.scanType !== undefined && 
+      dataWithObesity.scanDate !== undefined && 
+      dataWithObesity.resectionStatus !== undefined;
+
+    if ((demographicsFilled && !imagingFilled) || (imagingFilled && !demographicsFilled)) {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/combined_analysis`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        })
-        window.dispatchEvent(diagnosisEvent)
-      }, 2000)
+          body: JSON.stringify(dataWithObesity)
+        });
+
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+
+        const result = await response.json();
+        
+        window.dispatchEvent(new CustomEvent("diagnosisReady", {
+          detail: {
+            result,
+            patientId: data.patientId 
+          } 
+        }));
+        
+        setIsSubmitting(false);
+      } catch (error) {
+        console.error('Error:', error);
+        toast.error("Failed to generate diagnosis. Please try again.");
+        setIsSubmitting(false);
+      }
     } else {
-      // Show an error message in the modal
-      toast.error("Please fill all fields in demographics or both to generate diagnose!");
+      toast.error("Please fill all fields in either the demographics or imaging section, but not both partially.");
       setIsSubmitting(false);
     }
   }
@@ -137,8 +176,8 @@ export function PatientForm() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="M">Male</SelectItem>
-                            <SelectItem value="F">Female</SelectItem>
+                            <SelectItem value="Male">Male</SelectItem>
+                            <SelectItem value="Female">Female</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -180,7 +219,7 @@ export function PatientForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="smokingHistory"
+                    name="smoking"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Smoking History</FormLabel>
@@ -226,7 +265,7 @@ export function PatientForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="physicalActivityLevel"
+                    name="activity"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Physical Activity Level</FormLabel>
@@ -249,7 +288,7 @@ export function PatientForm() {
 
                   <FormField
                     control={form.control}
-                    name="accessToHealthcare"
+                    name="healthcare"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Access to Healthcare</FormLabel>
@@ -270,6 +309,44 @@ export function PatientForm() {
                     )}
                   />
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <FormField
+                    control={form.control}
+                    name="alcohol"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Alcohol Consumption</FormLabel>
+                        <FormControl>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Consume alcohol" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Yes">Yes</SelectItem>
+                              <SelectItem value="No">No</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                   <FormField
+                    control={form.control}
+                    name="patientId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Patient ID</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="ID" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+              </div>
+                
               </TabsContent>
 
               <TabsContent value="imaging" className="space-y-4 pt-4">

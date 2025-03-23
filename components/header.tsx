@@ -18,7 +18,7 @@ export function Header({ user }: HeaderProps) {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-primary">PancAI</h1>
+            <h1 className="text-3xl font-bold text-primary">PancrAI</h1>
             <p className="text-muted-foreground">Early Pancreatic Cancer Detection System</p>
           </div>
           
